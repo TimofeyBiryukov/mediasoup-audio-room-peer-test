@@ -7,13 +7,34 @@
   <script src="socket.io/socket.io.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
   <script src="js/mediasoupclient.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/vue@2.6.14/dist/vue.js"></script>
 </head>
 <body>
-  <button onclick="produce()">Send Audio</button>
+
+  <div id="app">
+    <div>
+      Create room:
+      <form @submit.prevent="onRoomCreate">
+        <input type="text" v-model="newRoomName">
+        <button type="submit">Create</button>
+      </form>
+
+      <ul>
+        <li v-for="roomId in rooms" :key="roomId">
+          {{roomId}}
+          <button @click="join(roomId)">Join</button>
+          <button v-if="currentRoomId === roomId" @click="produce">
+            Send Audio
+          </button>
+        </li>
+      </ul>
+    </div>
+  </div>
 
   <div id="remoteAudios"></div>
 
   <script>
+
     const socket = io('/');
     
     socket.request = function request(type, data = {}) {
@@ -32,149 +53,173 @@
       baseUrl: '/'
     });
 
-    const device = new mediasoupClient.Device();
-    let producerTransport = null;
-    let consumerTransport = null;
+    const app = new Vue({
+      el: '#app',
+      data: {
+        newRoomName: '',
+        rooms: [],
+        currentRoomId: null,
 
-    const ROOM_ID = 1;
+        device: new mediasoupClient.Device(),
+        producerTransport: null,
+        consumerTransport: null
+      },
+      async created() {
+        await this.init();
+        await this.fetchRooms();
+      },
+      methods: {
+        async init() {
+          socket.on('newProducers', async data => {
+            console.log('New producers', data);
+            for (const {producerId} of data) {
+              await this.consume(producerId);
+            }
+          });
+          
+        },
 
-    (async () => {
-      // create room
-      await api.post('/room', {roomId: ROOM_ID});
-      // join room
-      await socket.emit('join', {
-        roomId: ROOM_ID,
-        userId: Math.round(Math.random() * 10000000)
-      });
-      socket.emit('getProducers');
-      const routerRtpCapabilities = await socket
-        .request('getRouterRtpCapabilities');
-      await device.load({routerRtpCapabilities});
-      await initTransports();
-    })();
+        async fetchRooms() {
+          const res = await api.get('/rooms');
+          this.rooms = res.data;
+        },
+        async onRoomCreate() {
+          await api.post('/room', {roomId: this.newRoomName});
+          this.newRoomName = '';
+          await this.fetchRooms();
+        },
 
-    socket.on('newProducers', async data => {
-      console.log('New producers', data);
-      for (const {producerId} of data) {
-        await consume(producerId);
+        async join(roomId) {
+          await socket.emit('join', {
+            roomId,
+            userId: Math.round(Math.random() * 10000000)
+          });
+          this.currentRoomId = roomId;
+          socket.emit('getProducers');
+          const routerRtpCapabilities = await socket
+            .request('getRouterRtpCapabilities');
+          await this.device.load({routerRtpCapabilities});
+          await this.initTransports();
+        },
+
+        async initTransports() {
+          const producerTransportParams = await socket
+            .request('createWebRtcTransport');
+
+          this.producerTransport = this.device.createSendTransport(
+            producerTransportParams
+          );
+
+          this.producerTransport.on(
+            'connect',
+            async ({dtlsParameters}, callback, errback) => {
+              try {
+                const data = await socket.request('connectTransport', {
+                  dtlsParameters,
+                  transportId: producerTransportParams.id
+                });
+                callback(data);
+              } catch (err) {
+                errback(err);
+              }
+            }
+          );
+
+          this.producerTransport.on(
+            'produce',
+            async ({kind, rtpParameters}, callback, errback) => {
+              try {
+                const {producerId} = await socket.request('produce', {
+                  producerTransportId: this.producerTransport.id,
+                  kind,
+                  rtpParameters
+                });
+                return callback({id: producerId});
+              } catch (err) {
+                return errback(err);
+              }
+            }
+          );
+
+          this.producerTransport.on(
+            'connectionstatechange',
+            state => {
+              if (state === 'failed') this.producerTransport.close();
+            }
+          );
+
+          const consumerTransportParams = await socket
+            .request('createWebRtcTransport');
+
+          this.consumerTransport = this.device
+            .createRecvTransport(consumerTransportParams);
+
+          this.consumerTransport.on(
+            'connect',
+            async ({dtlsParameters}, callback, errback) => {
+              try {
+                await socket.request('connectTransport', {
+                  transportId: this.consumerTransport.id,
+                  dtlsParameters
+                });
+                return callback();
+              } catch (err) {
+                return errback(err);
+              }
+            }
+          );
+
+          this.consumerTransport.on(
+            'connectionstatechange',
+            state => {
+              if (state === 'failed') this.consumerTransport.close();
+            }
+          );
+
+        },        
+
+        async produce(type = 'audioType', deviceId = 'default') {
+          const stream = await navigator.mediaDevices.getUserMedia({
+            audio: {deviceId},
+            video: false
+          });
+          const track = stream.getAudioTracks()[0];
+
+          const producer = await this.producerTransport.produce({track});
+          console.log('Producer', producer);
+        },
+
+        async consume(producerId) {
+          const {rtpCapabilities} = this.device;
+
+          const {id, kind, rtpParameters} = await socket.request('consume', {
+            rtpCapabilities,
+            consumerTransportId: this.consumerTransport.id,
+            producerId
+          });
+
+          const consumer = await this.consumerTransport.consume({
+            id,
+            producerId,
+            kind,
+            rtpParameters,
+            codecOptions: {}
+          });
+
+          const stream = new MediaStream();
+          stream.addTrack(consumer.track);
+
+          const elem = document.createElement('audio');
+          elem.srcObject = stream;
+          elem.id = consumer.id;
+          elem.playsinline = false;
+          elem.autoplay = true;
+          remoteAudios.appendChild(elem);
+
+        }
+
       }
-    });
-
-    async function initTransports() {
-      const producerTransportParams = await socket
-        .request('createWebRtcTransport');
-
-      producerTransport = device.createSendTransport(
-        producerTransportParams
-      );
-
-      producerTransport.on(
-        'connect',
-        async ({dtlsParameters}, callback, errback) => {
-          try {
-            const data = await socket.request('connectTransport', {
-              dtlsParameters,
-              transportId: producerTransportParams.id
-            });
-            callback(data);
-          } catch (err) {
-            errback(err);
-          }
-        }
-      );
-
-      producerTransport.on(
-        'produce',
-        async ({kind, rtpParameters}, callback, errback) => {
-          try {
-            const {producerId} = await socket.request('produce', {
-              producerTransportId: producerTransport.id,
-              kind,
-              rtpParameters
-            });
-            return callback({id: producerId});
-          } catch (err) {
-            return errback(err);
-          }
-        }
-      );
-
-      producerTransport.on(
-        'connectionstatechange',
-        state => {
-          if (state === 'failed') producerTransport.close();
-        }
-      );
-
-      const consumerTransportParams = await socket
-        .request('createWebRtcTransport');
-
-      consumerTransport = device
-        .createRecvTransport(consumerTransportParams);
-
-      consumerTransport.on(
-        'connect',
-        async ({dtlsParameters}, callback, errback) => {
-          try {
-            await socket.request('connectTransport', {
-              transportId: consumerTransport.id,
-              dtlsParameters
-            });
-            return callback();
-          } catch (err) {
-            return errback(err);
-          }
-        }
-      );
-
-      consumerTransport.on(
-        'connectionstatechange',
-        state => {
-          if (state === 'failed') consumerTransport.close();
-        }
-      );
-
-    }
-
-    async function produce(type = 'audioType', deviceId = 'default') {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: {deviceId},
-        video: false
-      });
-      const track = stream.getAudioTracks()[0];
-
-      const producer = await producerTransport.produce({track});
-      console.log('Producer', producer);
-    }
-  
-    async function consume(producerId) {
-      const {rtpCapabilities} = device;
-
-      const {id, kind, rtpParameters} = await socket.request('consume', {
-        rtpCapabilities,
-        consumerTransportId: consumerTransport.id,
-        producerId
-      });
-
-      const consumer = await consumerTransport.consume({
-        id,
-        producerId,
-        kind,
-        rtpParameters,
-        codecOptions: {}
-      });
-
-      const stream = new MediaStream();
-      stream.addTrack(consumer.track);
-
-      const elem = document.createElement('audio');
-      elem.srcObject = stream;
-      elem.id = consumer.id;
-      elem.playsinline = false;
-      elem.autoplay = true;
-      remoteAudios.appendChild(elem);
-
-    }
+    })
   </script>
 </body>
 </html>

@@ -41,6 +41,10 @@ let nextMediasoupWorkerIdx = 0;
   }
 })();
 
+app.get('/rooms', async (req, res) => {
+  res.json(Array.from(roomsList).map(room => room[0]));
+});
+
 app.post('/room', async (req, res, next) => {  
   const roomId = req.body.roomId;
   console.log(`POST /room ${roomId}`);
