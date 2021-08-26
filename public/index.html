@@ -101,6 +101,7 @@
         },
 
         async join(roomId) {
+          if (this.audioProducer) this.closeProducer();
           await socket.emit('join', {
             roomId,
             userId: Math.round(Math.random() * 10000000)
@@ -109,7 +110,9 @@
           socket.emit('getProducers');
           const routerRtpCapabilities = await socket
             .request('getRouterRtpCapabilities');
-          await this.device.load({routerRtpCapabilities});
+          if (!this.device.loaded) {
+            await this.device.load({routerRtpCapabilities});
+          }
           await this.initTransports();
         },
 
