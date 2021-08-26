@@ -99,7 +99,7 @@ module.exports = class Room {
       'producerclose',
       () => {
         this.peers.get(socketId).removeConsumer(consumer.id);
-        this.id.to(socketId).emit('consumerClosed', {
+        this.io.to(socketId).emit('consumerClosed', {
           consumerId: consumer.id
         });
       }

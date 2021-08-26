@@ -87,6 +87,11 @@
               await this.consume(producerId);
             }
           });
+
+          socket.on('consumerClosed', ({consumerId}) => {
+            console.log('Closing consumer:', consumerId);
+            this.removeConsumer(consumerId);
+          });
           
         },
 
@@ -239,6 +244,12 @@
           });
           this.audioProducer.close();
           this.audioProducer = null;
+        },
+
+        removeConsumer(consumerId) {
+          const elem = document.getElementById(consumerId);
+          elem.srcObject.getTracks().forEach(track => track.stop());
+          elem.parentNode.removeChild(elem);
         }
 
       }
