@@ -24,13 +24,13 @@
           {{roomId}}
           <button @click="join(roomId)">Join</button>
           <button
-            v-if="currentRoomId === roomId && !audioOpen"
+            v-if="currentRoomId === roomId && !audioProducer"
             @click="produce"
           >
             Send Audio
           </button>
           <button
-            v-if="currentRoomId === roomId && audioOpen"
+            v-if="currentRoomId === roomId && !!audioProducer"
             @click="closeProducer"
           >
             Stop sending audio
@@ -69,11 +69,11 @@
         rooms: [],
         currentRoomId: null,
 
-        audioOpen: false,
-
         device: new mediasoupClient.Device(),
         producerTransport: null,
-        consumerTransport: null
+        consumerTransport: null,
+
+        audioProducer: null
       },
       async created() {
         await this.init();
@@ -197,7 +197,7 @@
           const track = stream.getAudioTracks()[0];
 
           const producer = await this.producerTransport.produce({track});
-          this.audioOpen = true;
+          this.audioProducer = producer;
           console.log('Producer', producer);
         },
 
@@ -232,10 +232,10 @@
 
         async closeProducer() {
           socket.emit('producerClosed', {
-            producerId: this.producerTransport.id
+            producerId: this.audioProducer.id
           });
-          this.producerTransport.close();
-          this.audioOpen = false;
+          this.audioProducer.close();
+          this.audioProducer = null;
         }
 
       }
