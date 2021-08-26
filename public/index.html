@@ -23,8 +23,17 @@
         <li v-for="roomId in rooms" :key="roomId">
           {{roomId}}
           <button @click="join(roomId)">Join</button>
-          <button v-if="currentRoomId === roomId" @click="produce">
+          <button
+            v-if="currentRoomId === roomId && !audioOpen"
+            @click="produce"
+          >
             Send Audio
+          </button>
+          <button
+            v-if="currentRoomId === roomId && audioOpen"
+            @click="closeProducer"
+          >
+            Stop sending audio
           </button>
         </li>
       </ul>
@@ -59,6 +68,8 @@
         newRoomName: '',
         rooms: [],
         currentRoomId: null,
+
+        audioOpen: false,
 
         device: new mediasoupClient.Device(),
         producerTransport: null,
@@ -178,7 +189,7 @@
 
         },        
 
-        async produce(type = 'audioType', deviceId = 'default') {
+        async produce(deviceId = 'communications') {
           const stream = await navigator.mediaDevices.getUserMedia({
             audio: {deviceId},
             video: false
@@ -186,6 +197,7 @@
           const track = stream.getAudioTracks()[0];
 
           const producer = await this.producerTransport.produce({track});
+          this.audioOpen = true;
           console.log('Producer', producer);
         },
 
@@ -216,6 +228,14 @@
           elem.autoplay = true;
           remoteAudios.appendChild(elem);
 
+        },
+
+        async closeProducer() {
+          socket.emit('producerClosed', {
+            producerId: this.producerTransport.id
+          });
+          this.producerTransport.close();
+          this.audioOpen = false;
         }
 
       }

@@ -2,7 +2,7 @@
 
 const express = require('express');
 const socketIo = require('socket.io');
-const {createServer} = require('https');
+const {createServer} = require('http');
 const bodyParser = require('body-parser');
 const mediasoup = require('mediasoup');
 const {readFileSync} = require('fs');
@@ -12,10 +12,10 @@ const Room = require('./src/Room.js');
 const Peer = require('./src/Peer.js');
 
 const app = express();
-const server = createServer({
+const server = createServer(/*{
   key: readFileSync(join(__dirname, './ssl/key.pem')),
   cert: readFileSync(join(__dirname, './ssl/cert.pem'))
-}, app);
+}, */app);
 const io = socketIo(server);
 const os = require('os');
 
@@ -125,13 +125,17 @@ io.on('connection', socket => {
 
     return callback(params);
   });
+
+  socket.on('producerClosed', ({producerId}) => {
+    roomsList.get(socket.roomId).closeProducer(socket.id, producerId);
+  });
   
 
 });
 
 server.listen(3000);
 
-console.log('Server listening on https://localhost:3000')
+console.log('Server listening on http://localhost:3000');
 
 function getMediasoupWorker() {
   const worker = workers[nextMediasoupWorkerIdx];

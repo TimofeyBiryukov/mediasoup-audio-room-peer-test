@@ -68,6 +68,16 @@ module.exports = class Peer {
     };
   }
 
+  closeProducer(producerId) {
+    try {
+      this.producers.get(producerId).close();
+    } catch (err) {
+      console.warn(err);
+    }
+
+    this.producers.delete(producerId);
+  }
+
   removeConsumer(consumerId) {
     this.consumers.delete(consumerId);
   }

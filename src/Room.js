@@ -108,6 +108,10 @@ module.exports = class Room {
     return params;
   }
 
+  closeProducer(socketId, producerId) {
+    this.peers.get(socketId).closeProducer(producerId);
+  }
+
   broadcast(socketId, userId, data) {
     const peerIds = Array
       .from(this.peers.keys())
