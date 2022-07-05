@@ -142,4 +142,3 @@ function getMediasoupWorker() {
   if (++nextMediasoupWorkerIdx === workers.length) nextMediasoupWorkerIdx = 0;
   return worker;
 }
-

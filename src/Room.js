@@ -41,11 +41,9 @@ module.exports = class Room {
   }
 
   async createWebRtcTransport(socketId) {
+    console.log(getListenIps());
     const transport = await this.router.createWebRtcTransport({
-      listenIps: [{
-        ip: '0.0.0.0',
-        announcedIp: this.getLocalIp()
-      }],
+      listenIps: getListenIps(),
       enableUdp: true,
       enableTcp: true,
       preferUdp: true,
@@ -146,3 +144,32 @@ module.exports = class Room {
     return localIp;
   }
 };
+
+function getListenIps() {
+  const listenIps = []
+  if (typeof window === 'undefined') {
+    const os = require('os')
+    const networkInterfaces = os.networkInterfaces()
+    const ips = []
+    if (networkInterfaces) {
+      for (const [key, addresses] of Object.entries(networkInterfaces)) {
+        addresses.forEach(address => {
+          if (address.family === 'IPv4') {
+            listenIps.push({ ip: address.address, announcedIp: null })
+          }
+          /* ignore link-local and other special ipv6 addresses.
+           * https://www.iana.org/assignments/ipv6-address-space/ipv6-address-space.xhtml
+           */
+          else if (address.family === 'IPv6' 
+                   && address.address[0] !== 'f') {
+            listenIps.push({ ip: address.address, announcedIp: null })
+          }
+        })
+      }
+    }
+  }
+  if (listenIps.length === 0) {
+    listenIps.push({ ip: '127.0.0.1', announcedIp: null })
+  }
+  return listenIps
+}
