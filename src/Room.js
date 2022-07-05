@@ -41,9 +41,10 @@ module.exports = class Room {
   }
 
   async createWebRtcTransport(socketId) {
-    console.log(getListenIps());
     const transport = await this.router.createWebRtcTransport({
-      listenIps: getListenIps(),
+      listenIps: [
+        {id: '54.193.157.102', announcedIp: null}
+      ],
       enableUdp: true,
       enableTcp: true,
       preferUdp: true,
