@@ -31,10 +31,7 @@ let webRtcServer = null;
 
 (async () => {
   // for (let i = 0; i < Object.keys(os.cpus()).length; i++) {
-  const worker = await mediasoup.createWorker({
-    rtcMinPort: 10000,
-    rtcMaxPort: 10010
-  });
+  const worker = await mediasoup.createWorker();
 
   worker.on('died', () => {
     console.error(
