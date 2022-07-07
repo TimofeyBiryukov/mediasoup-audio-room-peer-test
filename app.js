@@ -5,8 +5,8 @@ const socketIo = require('socket.io');
 const {createServer} = require('http');
 const bodyParser = require('body-parser');
 const mediasoup = require('mediasoup');
-const {readFileSync} = require('fs');
-const {join} = require('path');
+// const {readFileSync} = require('fs');
+// const {join} = require('path');
 
 const Room = require('./src/Room.js');
 const Peer = require('./src/Peer.js');
@@ -27,18 +27,33 @@ const roomsList = new Map();
 
 let nextMediasoupWorkerIdx = 0;
 
+let webRtcServer = null;
+
 (async () => {
-  for (let i = 0; i < Object.keys(os.cpus()).length; i++) {
-    const worker = await mediasoup.createWorker();
-    worker.on('died', () => {
-      console.error(
-        'mediasoup worker died, exiting in 2 seconds... [pid:%d]',
-        worker.pid
-      );
-      setTimeout(() => process.exit(1), 2000);
-    });
-    workers.push(worker);
-  }
+  // for (let i = 0; i < Object.keys(os.cpus()).length; i++) {
+  const worker = await mediasoup.createWorker({
+    rtcMinPort: 10000,
+    rtcMaxPort: 10010
+  });
+
+  worker.on('died', () => {
+    console.error(
+      'mediasoup worker died, exiting in 2 seconds... [pid:%d]',
+      worker.pid
+    );
+    setTimeout(() => process.exit(1), 2000);
+  });
+
+  workers.push(worker);
+
+  webRtcServer = await worker.createWebRtcServer({
+    listenInfos: ['tcp', 'udp'].map(protocol => ({
+      protocol,
+      ip: process.env.WEB_RTC_PORT || '127.0.0.1',
+      port: 10011
+    }))
+  });
+  // }
 })();
 
 app.get('/rooms', async (req, res) => {
@@ -55,7 +70,8 @@ app.post('/room', async (req, res, next) => {
     const room = new Room(
       roomId,
       getMediasoupWorker(),
-      io
+      io,
+      webRtcServer
     );
     await room.init();
     roomsList.set(roomId, room);

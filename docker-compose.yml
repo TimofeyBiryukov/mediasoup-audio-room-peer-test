@@ -1,0 +1,13 @@
+services:
+  server:
+    image: 'nikolaik/python-nodejs:python3.8-nodejs18-slim'
+    command: bash start.sh
+    working_dir: /app
+    environment:
+      WEB_RTC_PORT: 0.0.0.0
+    ports:
+      - '3000:3000'
+      # - '10000-10010:10000-10010/tcp'
+      - '20000:2000'
+    volumes:
+      - './:/app'

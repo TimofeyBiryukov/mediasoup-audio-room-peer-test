@@ -4,10 +4,11 @@ const {networkInterfaces} = require('os');
 const ifaces = networkInterfaces();
 
 module.exports = class Room {
-  constructor(roomId, worker, io) {
+  constructor(roomId, worker, io, webRtcServer) {
     this.id = roomId;
     this.worker = worker;
     this.io = io;
+    this.webRtcServer = webRtcServer;
     this.peers = new Map();
   }
 
@@ -41,10 +42,19 @@ module.exports = class Room {
   }
 
   async createWebRtcTransport(socketId) {
+    console.log(getListenIps());
     const transport = await this.router.createWebRtcTransport({
-      listenIps: [
-        {ip: '172.31.6.97', announcedIp: '54.193.157.102'}
-      ],
+      webRtcServer: this.webRtcServer,
+      // listenIps: getListenIps(),
+      // listenIps: 
+      // [
+      //   {ip: '0.0.0.0', announcedIp: '0.0.0.0'}
+      // ],
+      // TODO: try webRtcServer https://github.com/versatica/mediasoup-demo/blob/v3/server/config.example.js#L143
+      // getListenIps(),
+      // [
+      //   {ip: '172.31.6.97', announcedIp: '54.193.157.102'}
+      // ],
       enableUdp: true,
       enableTcp: true,
       preferUdp: true,
@@ -129,48 +139,4 @@ module.exports = class Room {
     return this.router.rtpCapabilities;
   }
 
-  getLocalIp() {
-    let localIp = '127.0.0.1';
-    Object.keys(ifaces).forEach((ifname) => {
-      for (const iface of ifaces[ifname]) {
-        // Ignore IPv6 and 127.0.0.1
-        if (iface.family !== 'IPv4' || iface.internal !== false) {
-          continue;
-        }
-        // Set the local ip to the first IPv4 address found and exit the loop
-        localIp = iface.address;
-        return;
-      }
-    })
-    return localIp;
-  }
 };
-
-function getListenIps() {
-  const listenIps = []
-  if (typeof window === 'undefined') {
-    const os = require('os')
-    const networkInterfaces = os.networkInterfaces()
-    const ips = []
-    if (networkInterfaces) {
-      for (const [key, addresses] of Object.entries(networkInterfaces)) {
-        addresses.forEach(address => {
-          if (address.family === 'IPv4') {
-            listenIps.push({ ip: address.address, announcedIp: null })
-          }
-          /* ignore link-local and other special ipv6 addresses.
-           * https://www.iana.org/assignments/ipv6-address-space/ipv6-address-space.xhtml
-           */
-          else if (address.family === 'IPv6' 
-                   && address.address[0] !== 'f') {
-            listenIps.push({ ip: address.address, announcedIp: null })
-          }
-        })
-      }
-    }
-  }
-  if (listenIps.length === 0) {
-    listenIps.push({ ip: '127.0.0.1', announcedIp: null })
-  }
-  return listenIps
-}
