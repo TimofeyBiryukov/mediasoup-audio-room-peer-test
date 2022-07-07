@@ -42,7 +42,6 @@ module.exports = class Room {
   }
 
   async createWebRtcTransport(socketId) {
-    console.log(getListenIps());
     const transport = await this.router.createWebRtcTransport({
       webRtcServer: this.webRtcServer,
       // listenIps: getListenIps(),

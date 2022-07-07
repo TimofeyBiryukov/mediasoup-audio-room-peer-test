@@ -4,10 +4,11 @@ services:
     command: bash start.sh
     working_dir: /app
     environment:
-      WEB_RTC_PORT: 0.0.0.0
+      WEB_RTC_SERVER_PORT: 10011
+      WEB_RTC_SERVER_IP: 0.0.0.0
+      WEB_RTC_SERVER_ANNOUNCED_IP: 127.0.0.1
     ports:
       - '3000:3000'
-      # - '10000-10010:10000-10010/tcp'
-      - '20000:2000'
+      - '10011:10011'
     volumes:
       - './:/app'

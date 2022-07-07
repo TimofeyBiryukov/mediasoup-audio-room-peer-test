@@ -49,8 +49,11 @@ let webRtcServer = null;
   webRtcServer = await worker.createWebRtcServer({
     listenInfos: ['tcp', 'udp'].map(protocol => ({
       protocol,
-      ip: process.env.WEB_RTC_PORT || '127.0.0.1',
-      port: 10011
+      ip: process.env.WEB_RTC_SERVER_IP || '0.0.0.0',
+      announcedIp: process.env.WEB_RTC_SERVER_ANNOUNCED_IP || '127.0.0.1',
+      port: isNaN(parseInt(process.env.WEB_RTC_SERVER_PORT))
+        ? 10011
+        : parseInt(process.env.WEB_RTC_SERVER_PORT)
     }))
   });
   // }
