@@ -82,9 +82,13 @@ app.post('/room', async (req, res, next) => {
 
 io.on('connection', socket => {
   socket.on('join', ({roomId, userId}) => {
-    console.log('User joined', {userId});
-    roomsList.get(roomId).addPeer(new Peer(socket.id, userId));
-    socket.roomId = roomId;
+    try {
+        console.log('User joined', {userId});
+        roomsList.get(roomId).addPeer(new Peer(socket.id, userId));
+        socket.roomId = roomId;
+    } catch (err) {
+      console.error(err);
+    }
   });
 
   socket.on('getRouterRtpCapabilities', (_, callback) => {
