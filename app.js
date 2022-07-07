@@ -5,19 +5,14 @@ const socketIo = require('socket.io');
 const {createServer} = require('http');
 const bodyParser = require('body-parser');
 const mediasoup = require('mediasoup');
-// const {readFileSync} = require('fs');
-// const {join} = require('path');
 
 const Room = require('./src/Room.js');
 const Peer = require('./src/Peer.js');
 
 const app = express();
-const server = createServer(/*{
-  key: readFileSync(join(__dirname, './ssl/key.pem')),
-  cert: readFileSync(join(__dirname, './ssl/cert.pem'))
-}, */app);
+const server = createServer(app);
 const io = socketIo(server);
-const os = require('os');
+// const os = require('os');
 
 app.use(express.static('public'));
 app.use(bodyParser());
