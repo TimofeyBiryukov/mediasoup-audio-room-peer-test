@@ -44,16 +44,6 @@ module.exports = class Room {
   async createWebRtcTransport(socketId) {
     const transport = await this.router.createWebRtcTransport({
       webRtcServer: this.webRtcServer,
-      // listenIps: getListenIps(),
-      // listenIps: 
-      // [
-      //   {ip: '0.0.0.0', announcedIp: '0.0.0.0'}
-      // ],
-      // TODO: try webRtcServer https://github.com/versatica/mediasoup-demo/blob/v3/server/config.example.js#L143
-      // getListenIps(),
-      // [
-      //   {ip: '172.31.6.97', announcedIp: '54.193.157.102'}
-      // ],
       enableUdp: true,
       enableTcp: true,
       preferUdp: true,
